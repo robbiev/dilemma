@@ -6,7 +6,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -97,58 +96,73 @@ func main() {
 
 	pos := <-cursorPosReply
 
-	width, height, _ := terminal.GetSize(0)
-	fmt.Println("width", width)
-	fmt.Println("\rheight", height, "\r")
+	_, height, _ := terminal.GetSize(0)
 
-	fmt.Println(pos, "\r")
+	var lines int
+	var selection int
 
-	fmt.Printf("1 Use UP and DOWN arrow keys\n")
-	fmt.Printf("\r2 Use UP and DOWN arrow keys\n")
+	options := []string{"waffles", "ice cream"}
 
-	tick := time.NewTicker(1 * time.Second)
-	defer tick.Stop()
-	lines := 6
-	count := 5
-	fmt.Printf("\rreturning in %d...", count)
+	draw := func() {
+		selectionIndex := int(math.Abs(float64(selection % len(options))))
+
+		fmt.Println(`Enter a choice:`)
+		fmt.Print("\r")
+		for i, v := range options {
+			if i == selectionIndex {
+				fmt.Print("\033[1m")
+			}
+			fmt.Printf("%d. %s\n", i+1, v)
+			if i == selectionIndex {
+				fmt.Print("\033[0m")
+			}
+			fmt.Print("\r")
+		}
+		lines = len(options) + 2
+	}
+
+	clear := func() {
+		// the line where we started is also filled with text so we don't need to
+		// count it when moving up
+		moveOffset := lines - 1
+		// correct the position when we're at the bottom of the screen
+		correct := height - pos.row
+		correct = moveOffset - int(math.Min(float64(correct), float64(moveOffset)))
+
+		// set the cursor to where we started
+		fmt.Printf("\033[%d;%dH", pos.row-correct, pos.col)
+
+		// erase from the cursor onwards
+		fmt.Printf("\033[J")
+	}
+
+	_ = clear
+	draw()
+
 	for {
 		select {
-		case <-tick.C:
-			count--
-
-			// the line where we started is also filled with text so we don't need to
-			// count it when moving up
-			moveOffset := lines - 1
-			// correct the position when we're at the bottom of the screen
-			correct := height - pos.row
-			correct = moveOffset - int(math.Min(float64(correct), float64(moveOffset)))
-
-			// set the cursor to where we started
-			fmt.Printf("\033[%d;%dH", pos.row-correct, pos.col)
-
-			// erase from the cursor onwards
-			fmt.Printf("\033[J")
-
-			//clearLine()
-			fmt.Printf("returning in %d...", count)
-			if count == 0 {
-				fmt.Println("\r")
-				return
-			}
 		case key := <-keyPresses:
 			switch key {
 			case enter:
 				clearLine()
-				fmt.Printf("\renter")
+				selectionIndex := int(math.Abs(float64(selection % len(options))))
+				fmt.Printf("\renjoy your %s\n\r", options[selectionIndex])
+				return
 			case up:
-				clearLine()
-				fmt.Printf("\rup")
+				selection--
+				clear()
+				draw()
+				//clearLine()
+				//fmt.Printf("\rup")
 			case down:
-				clearLine()
-				fmt.Printf("\rdown")
+				selection++
+				clear()
+				draw()
+				//clearLine()
+				//fmt.Printf("\rdown")
 			case unknown:
 				clearLine()
-				fmt.Printf("\runknown key")
+				fmt.Printf("\ruse arrow up and down, then enter to select")
 			}
 		}
 	}
