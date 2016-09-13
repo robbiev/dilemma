@@ -76,8 +76,6 @@ func main() {
 			case cursorPosRegex.MatchString(input):
 				matches := cursorPosRegex.FindStringSubmatch(input)
 				row, col := matches[1], matches[2]
-				//fmt.Println("row", row)
-				//fmt.Println("col", col)
 				r, _ := strconv.Atoi(row)
 				c, _ := strconv.Atoi(col)
 				cursorPosReply <- cursorPos{row: r, col: c}
@@ -95,13 +93,11 @@ func main() {
 	_, height, _ := terminal.GetSize(0)
 
 	var lines int
-	var selection int
+	var selectionIndex int
 
 	options := []string{"waffles", "ice cream", "candy", "biscuits"}
 
 	draw := func() {
-		selectionIndex := int(math.Abs(float64(selection % len(options))))
-
 		fmt.Println(`Make a selection using the arrow keys:`)
 		fmt.Print("\r")
 		for i, v := range options {
@@ -141,15 +137,14 @@ func main() {
 			switch key {
 			case enter:
 				clearLine()
-				selectionIndex := int(math.Abs(float64(selection % len(options))))
 				fmt.Printf("\renjoy your %s\n\r", options[selectionIndex])
 				return
 			case up:
-				selection--
+				selectionIndex = ((selectionIndex - 1) + len(options)) % len(options)
 				clear()
 				draw()
 			case down:
-				selection++
+				selectionIndex = ((selectionIndex + 1) + len(options)) % len(options)
 				clear()
 				draw()
 			case unknown:
