@@ -97,18 +97,19 @@ func main() {
 	var lines int
 	var selection int
 
-	options := []string{"waffles", "ice cream"}
+	options := []string{"waffles", "ice cream", "candy", "biscuits"}
 
 	draw := func() {
 		selectionIndex := int(math.Abs(float64(selection % len(options))))
 
-		fmt.Println(`Enter a choice:`)
+		fmt.Println(`Make a selection using the arrow keys:`)
 		fmt.Print("\r")
 		for i, v := range options {
+			fmt.Print("  ")
 			if i == selectionIndex {
-				fmt.Print("\033[1m")
+				fmt.Print("\033[7m")
 			}
-			fmt.Printf("%d. %s\n", i+1, v)
+			fmt.Printf("%s\n", v)
 			if i == selectionIndex {
 				fmt.Print("\033[0m")
 			}
@@ -147,14 +148,10 @@ func main() {
 				selection--
 				clear()
 				draw()
-				//clearLine()
-				//fmt.Printf("\rup")
 			case down:
 				selection++
 				clear()
 				draw()
-				//clearLine()
-				//fmt.Printf("\rdown")
 			case unknown:
 				clearLine()
 				fmt.Printf("\ruse arrow up and down, then enter to select")
