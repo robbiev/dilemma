@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strconv"
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -10,11 +12,19 @@ import (
 
 type key int
 
+type cursorPos struct {
+	row, col int
+}
+
 const (
 	unknown key = iota
 	up
 	down
 	enter
+)
+
+var (
+	cursorPosRegex = regexp.MustCompile("^\033\\[([0-9]+);([0-9]+)R$")
 )
 
 func clearLine() {
@@ -50,9 +60,8 @@ func main() {
 	//hideCursor()
 	//defer showCursor()
 
-	fmt.Printf("Use UP and DOWN arrow keys\n")
-
 	keyPresses := make(chan key)
+	cursorPosReply := make(chan cursorPos)
 	go func() {
 		buf := make([]byte, 128)
 		for {
@@ -68,11 +77,28 @@ func main() {
 				keyPresses <- down
 			case input == "\x0D":
 				keyPresses <- enter
+			case cursorPosRegex.MatchString(input):
+				matches := cursorPosRegex.FindStringSubmatch(input)
+				row, col := matches[1], matches[2]
+				//fmt.Println("row", row)
+				//fmt.Println("col", col)
+				r, _ := strconv.Atoi(row)
+				c, _ := strconv.Atoi(col)
+				cursorPosReply <- cursorPos{row: r, col: c}
 			default:
 				keyPresses <- unknown
 			}
 		}
 	}()
+
+	// ask for the cursor position
+	fmt.Printf("\033[6n")
+
+	pos := <-cursorPosReply
+	fmt.Println(pos, "\r")
+
+	fmt.Printf("1 Use UP and DOWN arrow keys\n")
+	fmt.Printf("\r2 Use UP and DOWN arrow keys\n")
 
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
@@ -82,8 +108,15 @@ func main() {
 		select {
 		case <-tick.C:
 			count--
-			clearLine()
-			fmt.Printf("\rreturning in %d...", count)
+
+			// TODO(robbiev) this does not work if we're at the bottom of the screen
+			fmt.Printf("\033[%d;%dH", pos.row, pos.col)
+
+			// erase from the cursor onwards
+			fmt.Printf("\033[J")
+
+			//clearLine()
+			fmt.Printf("returning in %d...", count)
 			if count == 0 {
 				fmt.Println("\r")
 				return
