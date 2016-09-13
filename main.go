@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"regexp"
 	"strconv"
@@ -95,6 +96,11 @@ func main() {
 	fmt.Printf("\033[6n")
 
 	pos := <-cursorPosReply
+
+	width, height, _ := terminal.GetSize(0)
+	fmt.Println("width", width)
+	fmt.Println("\rheight", height, "\r")
+
 	fmt.Println(pos, "\r")
 
 	fmt.Printf("1 Use UP and DOWN arrow keys\n")
@@ -102,6 +108,7 @@ func main() {
 
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
+	lines := 6
 	count := 5
 	fmt.Printf("\rreturning in %d...", count)
 	for {
@@ -109,8 +116,15 @@ func main() {
 		case <-tick.C:
 			count--
 
-			// TODO(robbiev) this does not work if we're at the bottom of the screen
-			fmt.Printf("\033[%d;%dH", pos.row, pos.col)
+			// the line where we started is also filled with text so we don't need to
+			// count it when moving up
+			moveOffset := lines - 1
+			// correct the position when we're at the bottom of the screen
+			correct := height - pos.row
+			correct = moveOffset - int(math.Min(float64(correct), float64(moveOffset)))
+
+			// set the cursor to where we started
+			fmt.Printf("\033[%d;%dH", pos.row-correct, pos.col)
 
 			// erase from the cursor onwards
 			fmt.Printf("\033[J")
