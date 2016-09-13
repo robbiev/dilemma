@@ -31,10 +31,6 @@ func clearLine() {
 	fmt.Print("\033[2K")
 }
 
-func clearScreen() {
-	fmt.Print("\033[2J")
-}
-
 func hideCursor() {
 	fmt.Print("\033[?25l")
 }
@@ -57,8 +53,8 @@ func main() {
 		panic(err)
 	}
 	defer terminal.Restore(0, oldState)
-	//hideCursor()
-	//defer showCursor()
+	hideCursor()
+	defer showCursor()
 
 	keyPresses := make(chan key)
 	cursorPosReply := make(chan cursorPos)
@@ -136,7 +132,6 @@ func main() {
 		fmt.Printf("\033[J")
 	}
 
-	_ = clear
 	draw()
 
 	for {
