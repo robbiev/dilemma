@@ -21,6 +21,7 @@ const (
 	up
 	down
 	enter
+	ctrlc
 )
 
 var (
@@ -73,6 +74,8 @@ func main() {
 				keyPresses <- down
 			case input == "\x0D":
 				keyPresses <- enter
+			case input == "\x03":
+				keyPresses <- ctrlc
 			case cursorPosRegex.MatchString(input):
 				matches := cursorPosRegex.FindStringSubmatch(input)
 				row, col := matches[1], matches[2]
@@ -138,6 +141,10 @@ func main() {
 			case enter:
 				clearLine()
 				fmt.Printf("\renjoy your %s\n\r", options[selectionIndex])
+				return
+			case ctrlc:
+				clearLine()
+				fmt.Print("\rexiting...\n\r")
 				return
 			case up:
 				selectionIndex = ((selectionIndex - 1) + len(options)) % len(options)
