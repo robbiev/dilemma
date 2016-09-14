@@ -41,7 +41,39 @@ func showCursor() {
 	fmt.Print("\033[?25h")
 }
 
-func main() {
+func inputLoop(keyPresses chan<- key, exitAck chan bool) {
+	buf := make([]byte, 128)
+	for {
+		n, err := os.Stdin.Read(buf)
+		if err != nil {
+			panic(err)
+		}
+		input := string(buf[:n])
+		switch {
+		case input == "\033[A":
+			keyPresses <- up
+		case input == "\033[B":
+			keyPresses <- down
+		case input == "\x0D":
+			keyPresses <- enter
+		case input == "\x03":
+			keyPresses <- ctrlc
+		default:
+			keyPresses <- unknown
+		}
+		if <-exitAck {
+			return
+		}
+	}
+}
+
+type selection struct {
+	title   string
+	options []string
+	help    string
+}
+
+func promptSelection(sel selection) (string, bool) {
 	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		panic(err)
@@ -58,40 +90,18 @@ func main() {
 	}()
 
 	keyPresses := make(chan key)
-	go func() {
-		buf := make([]byte, 128)
-		for {
-			n, err := os.Stdin.Read(buf)
-			if err != nil {
-				panic(err)
-			}
-			input := string(buf[:n])
-			switch {
-			case input == "\033[A":
-				keyPresses <- up
-			case input == "\033[B":
-				keyPresses <- down
-			case input == "\x0D":
-				keyPresses <- enter
-			case input == "\x03":
-				keyPresses <- ctrlc
-			default:
-				keyPresses <- unknown
-			}
-		}
-	}()
+	exitAck := make(chan bool)
+	go inputLoop(keyPresses, exitAck)
 
 	var selectionIndex int
 
-	options := []string{"waffles", "ice cream", "candy", "biscuits"}
-
 	// add one for the first line and one for the last empty line
-	lines := len(options) + 2
+	lines := len(sel.options) + 2
 
 	draw := func() {
-		fmt.Println(`Make a selection using the arrow keys:`)
+		fmt.Println(sel.title)
 		fmt.Print("\r")
-		for i, v := range options {
+		for i, v := range sel.options {
 			fmt.Print("  ")
 			if i == selectionIndex {
 				invertColours()
@@ -124,23 +134,58 @@ func main() {
 		case key := <-keyPresses:
 			switch key {
 			case enter:
+				exitAck <- true
 				clearLine()
-				fmt.Printf("Enjoy your %s!\n", options[selectionIndex])
-				return
+				return sel.options[selectionIndex], true
 			case ctrlc:
+				exitAck <- true
 				clearLine()
-				fmt.Print("Exiting...\n")
-				return
+				return "", false
 			case up:
-				selectionIndex = ((selectionIndex - 1) + len(options)) % len(options)
+				selectionIndex = ((selectionIndex - 1) + len(sel.options)) % len(sel.options)
 				redraw()
 			case down:
-				selectionIndex = ((selectionIndex + 1) + len(options)) % len(options)
+				selectionIndex = ((selectionIndex + 1) + len(sel.options)) % len(sel.options)
 				redraw()
 			case unknown:
 				clearLine()
-				fmt.Printf("Use arrow up and down, then enter to select.")
+				fmt.Printf(sel.help)
 			}
 		}
+		exitAck <- false
+	}
+}
+
+func main() {
+	{
+		s := selection{
+			title:   "Make a selection using the arrow keys:",
+			help:    "Use arrow up and down, then enter to select.",
+			options: []string{"waffles", "ice cream", "candy", "biscuits"},
+		}
+		selected, ok := promptSelection(s)
+		if !ok {
+			fmt.Print("Exiting...\n")
+			return
+		}
+
+		fmt.Printf("Enjoy your %s!\n", selected)
+	}
+
+	fmt.Println()
+
+	{
+		s := selection{
+			title:   "Make a selection using the arrow keys:",
+			help:    "Use arrow up and down, then enter to select.",
+			options: []string{"dog", "pony", "cat", "rabbit", "gopher", "elephant"},
+		}
+		selected, ok := promptSelection(s)
+		if !ok {
+			fmt.Print("Exiting...\n")
+			return
+		}
+
+		fmt.Printf("Enjoy your %s!\n", selected)
 	}
 }
