@@ -81,10 +81,12 @@ func main() {
 		}
 	}()
 
-	var lines int
 	var selectionIndex int
 
 	options := []string{"waffles", "ice cream", "candy", "biscuits"}
+
+	// add one for the first line and one for the last empty line
+	lines := len(options) + 2
 
 	draw := func() {
 		fmt.Println(`Make a selection using the arrow keys:`)
@@ -100,16 +102,19 @@ func main() {
 			}
 			fmt.Print("\r")
 		}
-		lines = len(options) + 2
 	}
 
 	clear := func() {
-		// the line where we started is also filled with text so we don't need to
-		// count it when moving up
+		// since we're on one of the lines already move up one less
 		for i := 0; i < lines-1; i++ {
 			clearLine()
 			moveUp()
 		}
+	}
+
+	redraw := func() {
+		clear()
+		draw()
 	}
 
 	draw()
@@ -120,20 +125,18 @@ func main() {
 			switch key {
 			case enter:
 				clearLine()
-				fmt.Printf("enjoy your %s\n", options[selectionIndex])
+				fmt.Printf("Enjoy your %s!\n", options[selectionIndex])
 				return
 			case ctrlc:
 				clearLine()
-				fmt.Print("exiting...\n")
+				fmt.Print("Exiting...\n")
 				return
 			case up:
 				selectionIndex = ((selectionIndex - 1) + len(options)) % len(options)
-				clear()
-				draw()
+				redraw()
 			case down:
 				selectionIndex = ((selectionIndex + 1) + len(options)) % len(options)
-				clear()
-				draw()
+				redraw()
 			case unknown:
 				clearLine()
 				fmt.Printf("Use arrow up and down, then enter to select.")
