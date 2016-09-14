@@ -13,6 +13,8 @@ type exitStatus int
 
 type interruptStatus int
 
+type helpStatus int
+
 type selection struct {
 	title   string
 	options []string
@@ -37,6 +39,11 @@ const (
 	intYes
 )
 
+const (
+	helpNo helpStatus = iota
+	helpYes
+)
+
 func invertColours() {
 	fmt.Print("\033[7m")
 }
@@ -59,6 +66,16 @@ func hideCursor() {
 
 func showCursor() {
 	fmt.Print("\033[?25h")
+}
+
+func lineCount(s string) int {
+	var count int
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			count++
+		}
+	}
+	return count + 1 // also count the first line
 }
 
 func inputLoop(keyPresses chan<- key, exitAck chan exitStatus) {
@@ -109,10 +126,7 @@ func promptSelection(sel selection) (string, interruptStatus) {
 
 	var selectionIndex int
 
-	// add one for the first line and one for the last empty line
-	lines := len(sel.options) + 2
-
-	draw := func() {
+	draw := func(help helpStatus) {
 		fmt.Println(sel.title)
 		fmt.Print("\r")
 		for i, v := range sel.options {
@@ -126,9 +140,21 @@ func promptSelection(sel selection) (string, interruptStatus) {
 			}
 			fmt.Print("\r")
 		}
+		if help == helpYes {
+			fmt.Print(sel.help)
+		}
 	}
 
-	clear := func() {
+	clear := func(help helpStatus) {
+		lines := lineCount(sel.title) + len(sel.options)
+
+		if help == helpYes {
+			lines = lines + lineCount(sel.help)
+		} else {
+			// the last line is an empty line but a line nonetheless
+			lines = lines + 1
+		}
+
 		// since we're on one of the lines already move up one less
 		for i := 0; i < lines-1; i++ {
 			clearLine()
@@ -136,12 +162,16 @@ func promptSelection(sel selection) (string, interruptStatus) {
 		}
 	}
 
-	redraw := func() {
-		clear()
-		draw()
-	}
+	redraw := func() func(helpStatus) {
+		var showHelp helpStatus
+		return func(help helpStatus) {
+			clear(showHelp)
+			showHelp = help
+			draw(showHelp)
+		}
+	}()
 
-	draw()
+	draw(helpNo)
 
 	for {
 		select {
@@ -149,21 +179,20 @@ func promptSelection(sel selection) (string, interruptStatus) {
 			switch key {
 			case enter:
 				exitAck <- exitYes
-				clearLine()
+				redraw(helpNo) // to clear help
 				return sel.options[selectionIndex], intNo
 			case ctrlc:
 				exitAck <- exitYes
-				clearLine()
+				redraw(helpNo) // to clear help
 				return "", intYes
 			case up:
 				selectionIndex = ((selectionIndex - 1) + len(sel.options)) % len(sel.options)
-				redraw()
+				redraw(helpNo)
 			case down:
 				selectionIndex = ((selectionIndex + 1) + len(sel.options)) % len(sel.options)
-				redraw()
+				redraw(helpNo)
 			case unknown:
-				clearLine()
-				fmt.Printf(sel.help)
+				redraw(helpYes)
 			}
 		}
 		exitAck <- exitNo
@@ -175,8 +204,8 @@ func main() {
 
 	{
 		s := selection{
-			title:   "Select a treat using the arrow keys:",
-			help:    "Use arrow up and down, then enter to select.",
+			title:   "Hello friend!\n\rSelect a treat using the arrow keys:",
+			help:    "Use arrow up and down, then enter to select.\n\rChoose wisely.",
 			options: []string{"waffles", "ice cream", "candy", "biscuits"},
 		}
 		selected, interrupt := promptSelection(s)
