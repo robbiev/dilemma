@@ -9,12 +9,32 @@ import (
 
 type key int
 
+type exitStatus int
+
+type interruptStatus int
+
+type selection struct {
+	title   string
+	options []string
+	help    string
+}
+
 const (
 	unknown key = iota
 	up
 	down
 	enter
 	ctrlc
+)
+
+const (
+	exitNo exitStatus = iota
+	exitYes
+)
+
+const (
+	intNo interruptStatus = iota
+	intYes
 )
 
 func invertColours() {
@@ -41,7 +61,7 @@ func showCursor() {
 	fmt.Print("\033[?25h")
 }
 
-func inputLoop(keyPresses chan<- key, exitAck chan bool) {
+func inputLoop(keyPresses chan<- key, exitAck chan exitStatus) {
 	buf := make([]byte, 128)
 	for {
 		n, err := os.Stdin.Read(buf)
@@ -61,19 +81,13 @@ func inputLoop(keyPresses chan<- key, exitAck chan bool) {
 		default:
 			keyPresses <- unknown
 		}
-		if <-exitAck {
+		if exitYes == <-exitAck {
 			return
 		}
 	}
 }
 
-type selection struct {
-	title   string
-	options []string
-	help    string
-}
-
-func promptSelection(sel selection) (string, bool) {
+func promptSelection(sel selection) (string, interruptStatus) {
 	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		panic(err)
@@ -90,7 +104,7 @@ func promptSelection(sel selection) (string, bool) {
 	}()
 
 	keyPresses := make(chan key)
-	exitAck := make(chan bool)
+	exitAck := make(chan exitStatus)
 	go inputLoop(keyPresses, exitAck)
 
 	var selectionIndex int
@@ -134,13 +148,13 @@ func promptSelection(sel selection) (string, bool) {
 		case key := <-keyPresses:
 			switch key {
 			case enter:
-				exitAck <- true
+				exitAck <- exitYes
 				clearLine()
-				return sel.options[selectionIndex], true
+				return sel.options[selectionIndex], intNo
 			case ctrlc:
-				exitAck <- true
+				exitAck <- exitYes
 				clearLine()
-				return "", false
+				return "", intYes
 			case up:
 				selectionIndex = ((selectionIndex - 1) + len(sel.options)) % len(sel.options)
 				redraw()
@@ -152,19 +166,21 @@ func promptSelection(sel selection) (string, bool) {
 				fmt.Printf(sel.help)
 			}
 		}
-		exitAck <- false
+		exitAck <- exitNo
 	}
 }
 
 func main() {
+	fmt.Println()
+
 	{
 		s := selection{
-			title:   "Make a selection using the arrow keys:",
+			title:   "Select a treat using the arrow keys:",
 			help:    "Use arrow up and down, then enter to select.",
 			options: []string{"waffles", "ice cream", "candy", "biscuits"},
 		}
-		selected, ok := promptSelection(s)
-		if !ok {
+		selected, interrupt := promptSelection(s)
+		if interrupt == intYes {
 			fmt.Print("Exiting...\n")
 			return
 		}
@@ -176,16 +192,18 @@ func main() {
 
 	{
 		s := selection{
-			title:   "Make a selection using the arrow keys:",
+			title:   "Select a companion using the arrow keys:",
 			help:    "Use arrow up and down, then enter to select.",
 			options: []string{"dog", "pony", "cat", "rabbit", "gopher", "elephant"},
 		}
-		selected, ok := promptSelection(s)
-		if !ok {
+		selected, interrupt := promptSelection(s)
+		if interrupt == intYes {
 			fmt.Print("Exiting...\n")
 			return
 		}
 
 		fmt.Printf("Enjoy your %s!\n", selected)
 	}
+
+	fmt.Println()
 }
