@@ -2,19 +2,12 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
-	"regexp"
-	"strconv"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
 
 type key int
-
-type cursorPos struct {
-	row, col int
-}
 
 const (
 	unknown key = iota
@@ -24,12 +17,20 @@ const (
 	ctrlc
 )
 
-var (
-	cursorPosRegex = regexp.MustCompile("^\033\\[([0-9]+);([0-9]+)R$")
-)
+func invertColours() {
+	fmt.Print("\033[7m")
+}
+
+func resetStyle() {
+	fmt.Print("\033[0m")
+}
+
+func moveUp() {
+	fmt.Print("\033[1A")
+}
 
 func clearLine() {
-	fmt.Print("\033[2K")
+	fmt.Print("\033[2K\r")
 }
 
 func hideCursor() {
@@ -40,25 +41,23 @@ func showCursor() {
 	fmt.Print("\033[?25h")
 }
 
-func fullScreenEnter() {
-	fmt.Printf("\033[?1049h\033[H")
-}
-
-func fullScreenExit() {
-	fmt.Printf("\033[?1049l")
-}
-
 func main() {
 	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		panic(err)
 	}
 	defer terminal.Restore(0, oldState)
+
 	hideCursor()
 	defer showCursor()
 
+	// ensure we always exit with the cursor at the beginning of the line so the
+	// terminal prompt prints in the expected place
+	defer func() {
+		fmt.Print("\r")
+	}()
+
 	keyPresses := make(chan key)
-	cursorPosReply := make(chan cursorPos)
 	go func() {
 		buf := make([]byte, 128)
 		for {
@@ -76,24 +75,11 @@ func main() {
 				keyPresses <- enter
 			case input == "\x03":
 				keyPresses <- ctrlc
-			case cursorPosRegex.MatchString(input):
-				matches := cursorPosRegex.FindStringSubmatch(input)
-				row, col := matches[1], matches[2]
-				r, _ := strconv.Atoi(row)
-				c, _ := strconv.Atoi(col)
-				cursorPosReply <- cursorPos{row: r, col: c}
 			default:
 				keyPresses <- unknown
 			}
 		}
 	}()
-
-	// ask for the cursor position
-	fmt.Printf("\033[6n")
-
-	pos := <-cursorPosReply
-
-	_, height, _ := terminal.GetSize(0)
 
 	var lines int
 	var selectionIndex int
@@ -106,11 +92,11 @@ func main() {
 		for i, v := range options {
 			fmt.Print("  ")
 			if i == selectionIndex {
-				fmt.Print("\033[7m")
+				invertColours()
 			}
 			fmt.Printf("%s\n", v)
 			if i == selectionIndex {
-				fmt.Print("\033[0m")
+				resetStyle()
 			}
 			fmt.Print("\r")
 		}
@@ -120,16 +106,10 @@ func main() {
 	clear := func() {
 		// the line where we started is also filled with text so we don't need to
 		// count it when moving up
-		moveOffset := lines - 1
-		// correct the position when we're at the bottom of the screen
-		correct := height - pos.row
-		correct = moveOffset - int(math.Min(float64(correct), float64(moveOffset)))
-
-		// set the cursor to where we started
-		fmt.Printf("\033[%d;%dH", pos.row-correct, pos.col)
-
-		// erase from the cursor onwards
-		fmt.Printf("\033[J")
+		for i := 0; i < lines-1; i++ {
+			clearLine()
+			moveUp()
+		}
 	}
 
 	draw()
@@ -140,11 +120,11 @@ func main() {
 			switch key {
 			case enter:
 				clearLine()
-				fmt.Printf("\renjoy your %s\n\r", options[selectionIndex])
+				fmt.Printf("enjoy your %s\n", options[selectionIndex])
 				return
 			case ctrlc:
 				clearLine()
-				fmt.Print("\rexiting...\n\r")
+				fmt.Print("exiting...\n")
 				return
 			case up:
 				selectionIndex = ((selectionIndex - 1) + len(options)) % len(options)
@@ -156,7 +136,7 @@ func main() {
 				draw()
 			case unknown:
 				clearLine()
-				fmt.Printf("\ruse arrow up and down, then enter to select")
+				fmt.Printf("Use arrow up and down, then enter to select.")
 			}
 		}
 	}
