@@ -31,6 +31,11 @@ const (
 // Key represents keys pressed by the user.
 type Key int
 
+type input struct {
+	key Key
+	err error
+}
+
 type exitStatus int
 
 type helpStatus int
@@ -77,25 +82,26 @@ func lineCount(s string) int {
 	return count + 1 // also count the first line
 }
 
-func inputLoop(keyPresses chan<- Key, exitAck chan exitStatus) {
+func inputLoop(keyPresses chan<- input, exitAck chan exitStatus) {
 	buf := make([]byte, 128)
 	for {
 		n, err := os.Stdin.Read(buf)
 		if err != nil {
-			panic(err)
+			keyPresses <- input{key: Empty, err: err}
+			return
 		}
-		input := string(buf[:n])
+		bufstr := string(buf[:n])
 		switch {
-		case input == "\033[A":
-			keyPresses <- up
-		case input == "\033[B":
-			keyPresses <- down
-		case input == "\x0D":
-			keyPresses <- enter
-		case input == "\x03":
-			keyPresses <- CtrlC
+		case bufstr == "\033[A":
+			keyPresses <- input{key: up}
+		case bufstr == "\033[B":
+			keyPresses <- input{key: down}
+		case bufstr == "\x0D":
+			keyPresses <- input{key: enter}
+		case bufstr == "\x03":
+			keyPresses <- input{key: CtrlC}
 		default:
-			keyPresses <- Empty
+			keyPresses <- input{key: Empty}
 		}
 		if exitYes == <-exitAck {
 			return
@@ -107,10 +113,10 @@ func inputLoop(keyPresses chan<- Key, exitAck chan exitStatus) {
 // is returned in the first return value. The second return value is set to
 // Empty unless the user presses CTRL-C (indicating she wants to signal SIGINT)
 // in which case the value will be CtrlC.
-func Prompt(config Config) (selected string, exitKey Key) {
+func Prompt(config Config) (string, Key, error) {
 	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
-		panic(err)
+		return "", Empty, err
 	}
 	defer terminal.Restore(0, oldState)
 
@@ -123,7 +129,7 @@ func Prompt(config Config) (selected string, exitKey Key) {
 		fmt.Print("\r")
 	}()
 
-	keyPresses := make(chan Key)
+	keyPresses := make(chan input, 1)
 	exitAck := make(chan exitStatus)
 	go inputLoop(keyPresses, exitAck)
 
@@ -178,16 +184,20 @@ func Prompt(config Config) (selected string, exitKey Key) {
 
 	for {
 		select {
-		case key := <-keyPresses:
-			switch key {
+		case input := <-keyPresses:
+			if input.err != nil {
+				redraw(helpNo) // to clear help
+				return "", Empty, input.err
+			}
+			switch input.key {
 			case enter:
 				exitAck <- exitYes
 				redraw(helpNo) // to clear help
-				return config.Options[selectionIndex], Empty
+				return config.Options[selectionIndex], Empty, nil
 			case CtrlC:
 				exitAck <- exitYes
 				redraw(helpNo) // to clear help
-				return "", CtrlC
+				return "", CtrlC, nil
 			case up:
 				selectionIndex = ((selectionIndex - 1) + len(config.Options)) % len(config.Options)
 				redraw(helpNo)

@@ -15,8 +15,8 @@ func main() {
 			Help:    "Use arrow up and down, then enter to select.\n\rChoose wisely.",
 			Options: []string{"waffles", "ice cream", "candy", "biscuits"},
 		}
-		selected, exitKey := dilemma.Prompt(s)
-		if exitKey == dilemma.CtrlC {
+		selected, exitKey, err := dilemma.Prompt(s)
+		if err != nil || exitKey == dilemma.CtrlC {
 			fmt.Print("Exiting...\n")
 			return
 		}
@@ -32,8 +32,8 @@ func main() {
 			Help:    "Use arrow up and down, then enter to select.",
 			Options: []string{"dog", "pony", "cat", "rabbit", "gopher", "elephant"},
 		}
-		selected, exitKey := dilemma.Prompt(s)
-		if exitKey == dilemma.CtrlC {
+		selected, exitKey, err := dilemma.Prompt(s)
+		if err != nil || exitKey == dilemma.CtrlC {
 			fmt.Print("Exiting...\n")
 			return
 		}
