@@ -1,4 +1,4 @@
-package main
+package termo
 
 import (
 	"fmt"
@@ -7,26 +7,15 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-type key int
-
-type exitStatus int
-
-type interruptStatus int
-
-type helpStatus int
-
-type selection struct {
-	title   string
-	options []string
-	help    string
-}
-
 const (
-	unknown key = iota
+	// Empty means key code information is not applicable
+	Empty Key = iota
 	up
 	down
 	enter
-	ctrlc
+	// CtrlC means CTRL-C was pressed.
+	// Usually this means the user wants to send SIGINT.
+	CtrlC
 )
 
 const (
@@ -35,14 +24,24 @@ const (
 )
 
 const (
-	intNo interruptStatus = iota
-	intYes
-)
-
-const (
 	helpNo helpStatus = iota
 	helpYes
 )
+
+// Key represents keys pressed by the user.
+type Key int
+
+type exitStatus int
+
+type helpStatus int
+
+// Selection holds the configuration to display a list of options
+// for a user to select.
+type Selection struct {
+	Title   string
+	Options []string
+	Help    string
+}
 
 func invertColours() {
 	fmt.Print("\033[7m")
@@ -78,7 +77,7 @@ func lineCount(s string) int {
 	return count + 1 // also count the first line
 }
 
-func inputLoop(keyPresses chan<- key, exitAck chan exitStatus) {
+func inputLoop(keyPresses chan<- Key, exitAck chan exitStatus) {
 	buf := make([]byte, 128)
 	for {
 		n, err := os.Stdin.Read(buf)
@@ -94,9 +93,9 @@ func inputLoop(keyPresses chan<- key, exitAck chan exitStatus) {
 		case input == "\x0D":
 			keyPresses <- enter
 		case input == "\x03":
-			keyPresses <- ctrlc
+			keyPresses <- CtrlC
 		default:
-			keyPresses <- unknown
+			keyPresses <- Empty
 		}
 		if exitYes == <-exitAck {
 			return
@@ -104,7 +103,11 @@ func inputLoop(keyPresses chan<- key, exitAck chan exitStatus) {
 	}
 }
 
-func promptSelection(sel selection) (string, interruptStatus) {
+// Prompt asks the user to select an option from the list. The selected option
+// is returned in the first return value. The second return value is set to
+// Empty unless the user presses CTRL-C (indicating she wants to signal SIGINT)
+// in which case the value will be CtrlC.
+func Prompt(sel Selection) (selected string, exitKey Key) {
 	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		panic(err)
@@ -120,16 +123,16 @@ func promptSelection(sel selection) (string, interruptStatus) {
 		fmt.Print("\r")
 	}()
 
-	keyPresses := make(chan key)
+	keyPresses := make(chan Key)
 	exitAck := make(chan exitStatus)
 	go inputLoop(keyPresses, exitAck)
 
 	var selectionIndex int
 
 	draw := func(help helpStatus) {
-		fmt.Println(sel.title)
+		fmt.Println(sel.Title)
 		fmt.Print("\r")
-		for i, v := range sel.options {
+		for i, v := range sel.Options {
 			fmt.Print("  ")
 			if i == selectionIndex {
 				invertColours()
@@ -141,15 +144,15 @@ func promptSelection(sel selection) (string, interruptStatus) {
 			fmt.Print("\r")
 		}
 		if help == helpYes {
-			fmt.Print(sel.help)
+			fmt.Print(sel.Help)
 		}
 	}
 
 	clear := func(help helpStatus) {
-		lines := lineCount(sel.title) + len(sel.options)
+		lines := lineCount(sel.Title) + len(sel.Options)
 
 		if help == helpYes {
-			lines = lines + lineCount(sel.help)
+			lines = lines + lineCount(sel.Help)
 		} else {
 			// the last line is an empty line but a line nonetheless
 			lines = lines + 1
@@ -180,59 +183,21 @@ func promptSelection(sel selection) (string, interruptStatus) {
 			case enter:
 				exitAck <- exitYes
 				redraw(helpNo) // to clear help
-				return sel.options[selectionIndex], intNo
-			case ctrlc:
+				return sel.Options[selectionIndex], Empty
+			case CtrlC:
 				exitAck <- exitYes
 				redraw(helpNo) // to clear help
-				return "", intYes
+				return "", CtrlC
 			case up:
-				selectionIndex = ((selectionIndex - 1) + len(sel.options)) % len(sel.options)
+				selectionIndex = ((selectionIndex - 1) + len(sel.Options)) % len(sel.Options)
 				redraw(helpNo)
 			case down:
-				selectionIndex = ((selectionIndex + 1) + len(sel.options)) % len(sel.options)
+				selectionIndex = ((selectionIndex + 1) + len(sel.Options)) % len(sel.Options)
 				redraw(helpNo)
-			case unknown:
+			case Empty:
 				redraw(helpYes)
 			}
 		}
 		exitAck <- exitNo
 	}
-}
-
-func main() {
-	fmt.Println()
-
-	{
-		s := selection{
-			title:   "Hello friend!\n\rSelect a treat using the arrow keys:",
-			help:    "Use arrow up and down, then enter to select.\n\rChoose wisely.",
-			options: []string{"waffles", "ice cream", "candy", "biscuits"},
-		}
-		selected, interrupt := promptSelection(s)
-		if interrupt == intYes {
-			fmt.Print("Exiting...\n")
-			return
-		}
-
-		fmt.Printf("Enjoy your %s!\n", selected)
-	}
-
-	fmt.Println()
-
-	{
-		s := selection{
-			title:   "Select a companion using the arrow keys:",
-			help:    "Use arrow up and down, then enter to select.",
-			options: []string{"dog", "pony", "cat", "rabbit", "gopher", "elephant"},
-		}
-		selected, interrupt := promptSelection(s)
-		if interrupt == intYes {
-			fmt.Print("Exiting...\n")
-			return
-		}
-
-		fmt.Printf("Enjoy your %s!\n", selected)
-	}
-
-	fmt.Println()
 }
