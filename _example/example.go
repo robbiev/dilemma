@@ -3,20 +3,20 @@ package main
 import (
 	"fmt"
 
-	"github.com/robbiev/termo"
+	"github.com/robbiev/dilemma"
 )
 
 func main() {
 	fmt.Println()
 
 	{
-		s := termo.Selection{
+		s := dilemma.Choice{
 			Title:   "Hello there!\n\rSelect a treat using the arrow keys:",
 			Help:    "Use arrow up and down, then enter to select.\n\rChoose wisely.",
 			Options: []string{"waffles", "ice cream", "candy", "biscuits"},
 		}
-		selected, exitKey := termo.Prompt(s)
-		if exitKey == termo.CtrlC {
+		selected, exitKey := dilemma.Prompt(s)
+		if exitKey == dilemma.CtrlC {
 			fmt.Print("Exiting...\n")
 			return
 		}
@@ -27,13 +27,13 @@ func main() {
 	fmt.Println()
 
 	{
-		s := termo.Selection{
+		s := dilemma.Choice{
 			Title:   "Select a companion using the arrow keys:",
 			Help:    "Use arrow up and down, then enter to select.",
 			Options: []string{"dog", "pony", "cat", "rabbit", "gopher", "elephant"},
 		}
-		selected, exitKey := termo.Prompt(s)
-		if exitKey == termo.CtrlC {
+		selected, exitKey := dilemma.Prompt(s)
+		if exitKey == dilemma.CtrlC {
 			fmt.Print("Exiting...\n")
 			return
 		}
