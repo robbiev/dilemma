@@ -183,30 +183,28 @@ func Prompt(config Config) (string, Key, error) {
 	draw(helpNo)
 
 	for {
-		select {
-		case input := <-keyPresses:
-			if input.err != nil {
-				redraw(helpNo) // to clear help
-				return "", Empty, input.err
-			}
-			switch input.key {
-			case enter:
-				exitAck <- exitYes
-				redraw(helpNo) // to clear help
-				return config.Options[selectionIndex], Empty, nil
-			case CtrlC:
-				exitAck <- exitYes
-				redraw(helpNo) // to clear help
-				return "", CtrlC, nil
-			case up:
-				selectionIndex = ((selectionIndex - 1) + len(config.Options)) % len(config.Options)
-				redraw(helpNo)
-			case down:
-				selectionIndex = ((selectionIndex + 1) + len(config.Options)) % len(config.Options)
-				redraw(helpNo)
-			case Empty:
-				redraw(helpYes)
-			}
+		input := <-keyPresses
+		if input.err != nil {
+			redraw(helpNo) // to clear help
+			return "", Empty, input.err
+		}
+		switch input.key {
+		case enter:
+			exitAck <- exitYes
+			redraw(helpNo) // to clear help
+			return config.Options[selectionIndex], Empty, nil
+		case CtrlC:
+			exitAck <- exitYes
+			redraw(helpNo) // to clear help
+			return "", CtrlC, nil
+		case up:
+			selectionIndex = ((selectionIndex - 1) + len(config.Options)) % len(config.Options)
+			redraw(helpNo)
+		case down:
+			selectionIndex = ((selectionIndex + 1) + len(config.Options)) % len(config.Options)
+			redraw(helpNo)
+		case Empty:
+			redraw(helpYes)
 		}
 		exitAck <- exitNo
 	}
