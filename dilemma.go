@@ -1,3 +1,4 @@
+// Package dilemma allows creating a TTY selection prompt.
 package dilemma
 
 import (
