@@ -35,9 +35,9 @@ type exitStatus int
 
 type helpStatus int
 
-// Choice holds the configuration to display a list of options
+// Config holds the configuration to display a list of options
 // for a user to select.
-type Choice struct {
+type Config struct {
 	Title   string
 	Options []string
 	Help    string
@@ -107,7 +107,7 @@ func inputLoop(keyPresses chan<- Key, exitAck chan exitStatus) {
 // is returned in the first return value. The second return value is set to
 // Empty unless the user presses CTRL-C (indicating she wants to signal SIGINT)
 // in which case the value will be CtrlC.
-func Prompt(choice Choice) (selected string, exitKey Key) {
+func Prompt(config Config) (selected string, exitKey Key) {
 	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		panic(err)
@@ -130,9 +130,9 @@ func Prompt(choice Choice) (selected string, exitKey Key) {
 	var selectionIndex int
 
 	draw := func(help helpStatus) {
-		fmt.Println(choice.Title)
+		fmt.Println(config.Title)
 		fmt.Print("\r")
-		for i, v := range choice.Options {
+		for i, v := range config.Options {
 			fmt.Print("  ")
 			if i == selectionIndex {
 				invertColours()
@@ -144,15 +144,15 @@ func Prompt(choice Choice) (selected string, exitKey Key) {
 			fmt.Print("\r")
 		}
 		if help == helpYes {
-			fmt.Print(choice.Help)
+			fmt.Print(config.Help)
 		}
 	}
 
 	clear := func(help helpStatus) {
-		lines := lineCount(choice.Title) + len(choice.Options)
+		lines := lineCount(config.Title) + len(config.Options)
 
 		if help == helpYes {
-			lines = lines + lineCount(choice.Help)
+			lines = lines + lineCount(config.Help)
 		} else {
 			// the last line is an empty line but a line nonetheless
 			lines = lines + 1
@@ -183,16 +183,16 @@ func Prompt(choice Choice) (selected string, exitKey Key) {
 			case enter:
 				exitAck <- exitYes
 				redraw(helpNo) // to clear help
-				return choice.Options[selectionIndex], Empty
+				return config.Options[selectionIndex], Empty
 			case CtrlC:
 				exitAck <- exitYes
 				redraw(helpNo) // to clear help
 				return "", CtrlC
 			case up:
-				selectionIndex = ((selectionIndex - 1) + len(choice.Options)) % len(choice.Options)
+				selectionIndex = ((selectionIndex - 1) + len(config.Options)) % len(config.Options)
 				redraw(helpNo)
 			case down:
-				selectionIndex = ((selectionIndex + 1) + len(choice.Options)) % len(choice.Options)
+				selectionIndex = ((selectionIndex + 1) + len(config.Options)) % len(config.Options)
 				redraw(helpNo)
 			case Empty:
 				redraw(helpYes)
