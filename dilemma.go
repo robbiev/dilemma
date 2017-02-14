@@ -148,6 +148,8 @@ func Prompt(config Config) (string, Key, error) {
 			} else {
 				if config.ShownItems != 0 {
 					minVal = selectionIndex - config.ShownItems
+				} else {
+					minVal = 0
 				}
 			}
 			if selectionIndex+config.ShownItems <= len(config.Options) {
@@ -155,7 +157,7 @@ func Prompt(config Config) (string, Key, error) {
 			} else {
 				maxVal = len(config.Options)
 			}
-			if i >= minVal && i <= maxVal {
+			if (i >= minVal && i <= maxVal) || (config.ShownItems == 0) {
 				if i == selectionIndex {
 					invertColours()
 				}
@@ -166,7 +168,7 @@ func Prompt(config Config) (string, Key, error) {
 				fmt.Print("\r")
 			}
 		}
-		if config.ShownItems < len(config.Options) {
+		if (config.ShownItems < len(config.Options)) || config.ShownItems != 0 {
 			fmt.Print("...")
 		}
 		if help == helpYes {
