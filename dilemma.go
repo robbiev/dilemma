@@ -44,9 +44,10 @@ type helpStatus int
 // Config holds the configuration to display a list of options
 // for a user to select.
 type Config struct {
-	Title   string
-	Options []string
-	Help    string
+	Title      string
+	Options    []string
+	Help       string
+	ShownItems int
 }
 
 func invertColours() {
@@ -138,17 +139,38 @@ func Prompt(config Config) (string, Key, error) {
 
 	draw := func(help helpStatus) {
 		fmt.Println(config.Title)
+		if config.ShownItems < len(config.Options) {
+			fmt.Println("...")
+		}
 		fmt.Print("\r")
 		for i, v := range config.Options {
-			fmt.Print("  ")
-			if i == selectionIndex {
-				invertColours()
+			minVal := 0
+			maxVal := 0
+			if selectionIndex < config.ShownItems {
+				minVal = 0
+			} else {
+				if config.ShownItems != 0 {
+					minVal = selectionIndex - config.ShownItems
+				}
 			}
-			fmt.Printf("%s\n", v)
-			if i == selectionIndex {
-				resetStyle()
+			if selectionIndex+config.ShownItems <= len(config.Options) {
+				maxVal = selectionIndex + config.ShownItems
+			} else {
+				maxVal = len(config.Options)
 			}
-			fmt.Print("\r")
+			if i >= minVal && i <= maxVal {
+				if i == selectionIndex {
+					invertColours()
+				}
+				fmt.Printf("%s\n", v)
+				if i == selectionIndex {
+					resetStyle()
+				}
+				fmt.Print("\r")
+			}
+		}
+		if config.ShownItems < len(config.Options) {
+			fmt.Println("...")
 		}
 		if help == helpYes {
 			fmt.Print(config.Help)
