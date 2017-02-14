@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/robbiev/dilemma"
 )
 
@@ -13,8 +12,8 @@ func main() {
 		s := dilemma.Config{
 			Title:      "Hello there!\n\rSelect a treat using the arrow keys:",
 			Help:       "Use arrow up and down, then enter to select.\n\rChoose wisely.",
-			Options:    []string{"waffles", "ice cream", "candy", "biscuits"},
-			ShownItems: 0,
+			Options:    []string{"waffles", "ice cream", "candy", "biscuits", "icy-poles", "cake", "cupcake", "muffin"},
+			ShownItems: 2,
 		}
 		selected, exitKey, err := dilemma.Prompt(s)
 		if err != nil || exitKey == dilemma.CtrlC {

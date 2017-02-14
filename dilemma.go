@@ -139,9 +139,6 @@ func Prompt(config Config) (string, Key, error) {
 
 	draw := func(help helpStatus) {
 		fmt.Println(config.Title)
-		if config.ShownItems < len(config.Options) {
-			fmt.Println("...")
-		}
 		fmt.Print("\r")
 		for i, v := range config.Options {
 			minVal := 0
@@ -170,7 +167,7 @@ func Prompt(config Config) (string, Key, error) {
 			}
 		}
 		if config.ShownItems < len(config.Options) {
-			fmt.Println("...")
+			fmt.Print("...")
 		}
 		if help == helpYes {
 			fmt.Print(config.Help)
